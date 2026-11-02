@@ -28,7 +28,7 @@ struct Enemies {
 
 static int WINDOW_WIDTH = 400;
 static int WINDOW_HEIGHT = 600;
-static int VELOCITY = 100;
+static int VELOCITY = 200;
 static int BULLET_VELOCITY = 200;
 static float FIRE_RATE = 5.0f;
 static float BULLET_WIDTH = 4.0f;
@@ -37,21 +37,21 @@ static float BULLET_HEIGHT = 10.0f;
 void moveShipLeft(float dt, Ship *ship) {
   ship->pos.x -= dt * VELOCITY;
   ship->corners[0].x = ship->pos.x;
-  ship->corners[0].y = ship->pos.y - ship->dimensions.x / 2;
-  ship->corners[1].x = ship->pos.x - ship->dimensions.y / 2;
-  ship->corners[1].y = ship->pos.y + ship->dimensions.x / 2;
-  ship->corners[2].x = ship->pos.x + ship->dimensions.y / 2;
-  ship->corners[2].y = ship->pos.y + ship->dimensions.x / 2;
+  ship->corners[0].y = ship->pos.y - ship->dimensions.y / 2;
+  ship->corners[1].x = ship->pos.x - ship->dimensions.x / 2;
+  ship->corners[1].y = ship->pos.y + ship->dimensions.y / 2;
+  ship->corners[2].x = ship->pos.x + ship->dimensions.x / 2;
+  ship->corners[2].y = ship->pos.y + ship->dimensions.y / 2;
 }
 
 void moveShipRight(float dt, Ship *ship) {
   ship->pos.x += dt * VELOCITY;
   ship->corners[0].x = ship->pos.x;
-  ship->corners[0].y = ship->pos.y - ship->dimensions.x / 2;
-  ship->corners[1].x = ship->pos.x - ship->dimensions.y / 2;
-  ship->corners[1].y = ship->pos.y + ship->dimensions.x / 2;
-  ship->corners[2].x = ship->pos.x + ship->dimensions.y / 2;
-  ship->corners[2].y = ship->pos.y + ship->dimensions.x / 2;
+  ship->corners[0].y = ship->pos.y - ship->dimensions.y / 2;
+  ship->corners[1].x = ship->pos.x - ship->dimensions.x / 2;
+  ship->corners[1].y = ship->pos.y + ship->dimensions.y / 2;
+  ship->corners[2].x = ship->pos.x + ship->dimensions.x / 2;
+  ship->corners[2].y = ship->pos.y + ship->dimensions.y / 2;
 }
 
 void input(float dt, Ship *ship) {
@@ -100,18 +100,23 @@ int main(void) {
   Ship ship = {0};
   ship.pos.x = WINDOW_WIDTH / 2;
   ship.pos.y = WINDOW_HEIGHT - 30;
-  ship.dimensions.x = 25;
-  ship.dimensions.y = 30;
+  ship.dimensions.x = 15;
+  ship.dimensions.y = 20;
   ship.corners[0].x = ship.pos.x;
-  ship.corners[0].y = ship.pos.y - ship.dimensions.x / 2;
-  ship.corners[1].x = ship.pos.x - ship.dimensions.y / 2;
-  ship.corners[1].y = ship.pos.y + ship.dimensions.x / 2;
-  ship.corners[2].x = ship.pos.x + ship.dimensions.y / 2;
-  ship.corners[2].y = ship.pos.y + ship.dimensions.x / 2;
+  ship.corners[0].y = ship.pos.y - ship.dimensions.y / 2;
+  ship.corners[1].x = ship.pos.x - ship.dimensions.x / 2;
+  ship.corners[1].y = ship.pos.y + ship.dimensions.y / 2;
+  ship.corners[2].x = ship.pos.x + ship.dimensions.x / 2;
+  ship.corners[2].y = ship.pos.y + ship.dimensions.y / 2;
 
   Bullets bullets = {0};
   Vector2 pos[1000];
   bullets.pos = pos;
+
+  Enemies enemies = {0};
+  Ship enemy_ships[1000];
+  enemies.ships = enemy_ships;
+
   float dt = 0.0f;
   float time_since_last_shot = 0.0f;
   while (!WindowShouldClose()) {
