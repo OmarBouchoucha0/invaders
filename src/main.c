@@ -59,6 +59,7 @@ enum GameState {
 };
 
 static float FIRE_RATE = 5.0f;
+static float ENEMY_FIRE_RATE = 10.0f;
 static int LAST_ENTITY_ID = 1;
 static int NUMBER_OF_ENEMIES = 0;
 
@@ -127,14 +128,45 @@ void spawnEnemies(Entity *entities) {
   }
 }
 
-void input(GameState *game_state, Entity *entities) {
+void spawnEnemyBullet(Entity *entities) {
+  for (int i = 1; i < LAST_ENTITY_ID; ++i) {
+    if (entities[i].type == ENEMY) {
+      if (GetRandomValue(1, 100) <= 1) {
+        Entity enemy = entities[i];
+        Entity bullet = {0};
+        bullet.type = ENEMY_BULLET;
+        bullet.state = ALIVE;
+        bullet.bullet.pos.x = enemy.ship.pos.x - BULLET_WIDTH / 2.0f;
+        bullet.bullet.pos.y =
+            enemy.ship.pos.y + enemy.ship.dimensions.y / 2.0f + BULLET_HEIGHT;
+        bullet.bullet.dimensions.x = BULLET_WIDTH;
+        bullet.bullet.dimensions.y = BULLET_HEIGHT;
+        bullet.bullet.velocity.y += BULLET_SPEED;
+        addEntity(entities, bullet);
+      }
+    }
+  }
+}
+
+void resetGame(Entity *entities) {
+  LAST_ENTITY_ID = 1;
+  spawnPlayer(entities);
+  spawnEnemies(entities);
+}
+
+void input(float dt, GameState *game_state, Entity *entities) {
+  static float shoot_cd = 0.0f;
   switch (*game_state) {
   case MENU: {
     if (IsKeyPressed(KEY_ENTER)) {
       *game_state = ON;
+      resetGame(entities);
     }
   } break;
   case ON: {
+    shoot_cd -= dt;
+    if (shoot_cd < 0.0f)
+      shoot_cd = 0.0f;
     Entity *player = &entities[PLAYER_ID];
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
       player->ship.velocity.x -= SHIP_SPEED;
@@ -142,19 +174,23 @@ void input(GameState *game_state, Entity *entities) {
     if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
       player->ship.velocity.x += SHIP_SPEED;
     }
-
-    if (IsKeyPressed(KEY_SPACE)) {
-      spawnPlayerBullet(entities);
+    if (IsKeyDown(KEY_SPACE)) {
+      if (shoot_cd <= 0.0f) {
+        spawnPlayerBullet(entities);
+        shoot_cd += 1.0f / FIRE_RATE;
+      }
     }
   } break;
   case WON: {
     if (IsKeyPressed(KEY_ENTER)) {
       *game_state = ON;
+      resetGame(entities);
     }
   } break;
   case LOST: {
     if (IsKeyPressed(KEY_ENTER)) {
       *game_state = ON;
+      resetGame(entities);
     }
   } break;
   }
@@ -222,7 +258,7 @@ void collisionBulletEnemy(GameState *game_state, Entity *entities) {
 void collisionBulletPlayer(GameState *game_state, Entity *entities) {
   Entity *player = &entities[PLAYER_ID];
   for (int i = 1; i < LAST_ENTITY_ID; ++i) {
-    if (entities[i].type == PLAYER_BULLET && entities[i].state == ALIVE) {
+    if (entities[i].type == ENEMY_BULLET && entities[i].state == ALIVE) {
       Entity *bullet = &entities[i];
       if (collisionBulletShip(*bullet, *player)) {
         player->state = DEAD;
@@ -271,6 +307,17 @@ void physics(GameState *game_state, float dt, Entity *entities) {
   collisionBulletPlayer(game_state, entities);
 }
 
+void ai(float dt, Entity *entities) {
+  static float cd = 0.0f;
+  cd -= dt;
+  if (cd < 0.0f)
+    cd = 0.0f;
+  if (cd <= 0.0f) {
+    cd += 1.0f / ENEMY_FIRE_RATE;
+    spawnEnemyBullet(entities);
+  }
+}
+
 void drawEntities(Entity *entities) {
   for (int i = 1; i < LAST_ENTITY_ID; ++i) {
     Entity entity = entities[i];
@@ -289,6 +336,11 @@ void drawEntities(Entity *entities) {
     if (entity.type == ENEMY) {
       DrawTriangle(entity.ship.corners[0], entity.ship.corners[1],
                    entity.ship.corners[2], RAYWHITE);
+    }
+    if (entity.type == ENEMY_BULLET) {
+      DrawRectangle(entity.bullet.pos.x, entity.bullet.pos.y,
+                    entity.bullet.dimensions.x, entity.bullet.dimensions.y,
+                    RAYWHITE);
     }
   }
 }
@@ -361,13 +413,12 @@ int main(void) {
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "SPACE INVADERS");
   SetTargetFPS(60);
   Entity entities[MAX_ENTITIES] = {0};
-  spawnPlayer(entities);
-  spawnEnemies(entities);
   GameState game_state = MENU;
   float dt = 0.0f;
   while (!WindowShouldClose()) {
     dt = GetFrameTime();
-    input(&game_state, entities);
+    input(dt, &game_state, entities);
+    ai(dt, entities);
     physics(&game_state, dt, entities);
     BeginDrawing();
     ClearBackground(BLACK);
