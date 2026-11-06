@@ -1,5 +1,6 @@
 #include <raylib.h>
 #include <stdio.h>
+
 #define MAX_ENTITIES 10000
 #define PLAYER_ID 1
 #define SHIP_SPEED 200.0f
@@ -49,8 +50,17 @@ struct Entity {
   Type type;
 };
 
+typedef enum GameState GameState;
+enum GameState {
+  MENU,
+  ON,
+  WON,
+  LOST,
+};
+
 static float FIRE_RATE = 5.0f;
 static int LAST_ENTITY_ID = 1;
+static int NUMBER_OF_ENEMIES = 0;
 
 void addEntity(Entity *entities, Entity entity) {
   for (int i = 1; i < LAST_ENTITY_ID; ++i) {
@@ -112,21 +122,41 @@ void spawnEnemies(Entity *entities) {
       enemy.ship.corners[2].x = enemy.ship.pos.x - enemy.ship.dimensions.x / 2;
       enemy.ship.corners[2].y = enemy.ship.pos.y - enemy.ship.dimensions.y / 2;
       addEntity(entities, enemy);
+      NUMBER_OF_ENEMIES++;
     }
   }
 }
 
-void input(Entity *entities) {
-  Entity *player = &entities[PLAYER_ID];
-  if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
-    player->ship.velocity.x -= SHIP_SPEED;
-  }
-  if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
-    player->ship.velocity.x += SHIP_SPEED;
-  }
+void input(GameState *game_state, Entity *entities) {
+  switch (*game_state) {
+  case MENU: {
+    if (IsKeyPressed(KEY_ENTER)) {
+      *game_state = ON;
+    }
+  } break;
+  case ON: {
+    Entity *player = &entities[PLAYER_ID];
+    if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
+      player->ship.velocity.x -= SHIP_SPEED;
+    }
+    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
+      player->ship.velocity.x += SHIP_SPEED;
+    }
 
-  if (IsKeyPressed(KEY_SPACE)) {
-    spawnPlayerBullet(entities);
+    if (IsKeyPressed(KEY_SPACE)) {
+      spawnPlayerBullet(entities);
+    }
+  } break;
+  case WON: {
+    if (IsKeyPressed(KEY_ENTER)) {
+      *game_state = ON;
+    }
+  } break;
+  case LOST: {
+    if (IsKeyPressed(KEY_ENTER)) {
+      *game_state = ON;
+    }
+  } break;
   }
 }
 
@@ -168,7 +198,7 @@ bool collisionBulletShip(Entity bullet, Entity ship) {
   return hit;
 }
 
-void collisionBulletEnemy(Entity *entities) {
+void collisionBulletEnemy(GameState *game_state, Entity *entities) {
   for (int i = 1; i < LAST_ENTITY_ID; ++i) {
     if (entities[i].type == PLAYER_BULLET && entities[i].state == ALIVE) {
       Entity *bullet = &entities[i];
@@ -178,8 +208,26 @@ void collisionBulletEnemy(Entity *entities) {
           if (collisionBulletShip(*bullet, *enemy)) {
             enemy->state = DEAD;
             bullet->state = DEAD;
+            NUMBER_OF_ENEMIES--;
+          }
+          if (NUMBER_OF_ENEMIES <= 0) {
+            *game_state = WON;
           }
         }
+      }
+    }
+  }
+}
+
+void collisionBulletPlayer(GameState *game_state, Entity *entities) {
+  Entity *player = &entities[PLAYER_ID];
+  for (int i = 1; i < LAST_ENTITY_ID; ++i) {
+    if (entities[i].type == PLAYER_BULLET && entities[i].state == ALIVE) {
+      Entity *bullet = &entities[i];
+      if (collisionBulletShip(*bullet, *player)) {
+        player->state = DEAD;
+        bullet->state = DEAD;
+        *game_state = LOST;
       }
     }
   }
@@ -216,10 +264,11 @@ void updateBulletsPos(float dt, Entity *entities) {
   }
 }
 
-void physics(float dt, Entity *entities) {
+void physics(GameState *game_state, float dt, Entity *entities) {
   updatePlayerPos(dt, entities);
   updateBulletsPos(dt, entities);
-  collisionBulletEnemy(entities);
+  collisionBulletEnemy(game_state, entities);
+  collisionBulletPlayer(game_state, entities);
 }
 
 void drawEntities(Entity *entities) {
@@ -244,6 +293,69 @@ void drawEntities(Entity *entities) {
   }
 }
 
+void drawMenu() {
+  char buffer[1000];
+  snprintf(buffer, sizeof(buffer), "INVADERS");
+  int font_size = 64;
+  int text_width = MeasureText(buffer, font_size);
+  DrawText(buffer, WINDOW_WIDTH / 2.0f - text_width / 2, 200, font_size,
+           RAYWHITE);
+
+  snprintf(buffer, sizeof(buffer), "PRESS ENTER TO START");
+  font_size = 24;
+  text_width = MeasureText(buffer, font_size);
+  DrawText(buffer, WINDOW_WIDTH / 2.0f - text_width / 2, 400, font_size,
+           RAYWHITE);
+
+  snprintf(buffer, sizeof(buffer), "PRESS ESC TO QUIT");
+  font_size = 24;
+  text_width = MeasureText(buffer, font_size);
+  DrawText(buffer, WINDOW_WIDTH / 2.0f - text_width / 2, 450, font_size,
+           RAYWHITE);
+}
+
+void drawLostScreen() {
+  char buffer[1000];
+  snprintf(buffer, sizeof(buffer), "LOST");
+  int font_size = 64;
+  int text_width = MeasureText(buffer, font_size);
+  DrawText(buffer, WINDOW_WIDTH / 2.0f - text_width / 2, 200, font_size,
+           RAYWHITE);
+
+  snprintf(buffer, sizeof(buffer), "PRESS ENTER TO RESTART");
+  font_size = 24;
+  text_width = MeasureText(buffer, font_size);
+  DrawText(buffer, WINDOW_WIDTH / 2.0f - text_width / 2, 400, font_size,
+           RAYWHITE);
+
+  snprintf(buffer, sizeof(buffer), "PRESS ESC TO QUIT");
+  font_size = 24;
+  text_width = MeasureText(buffer, font_size);
+  DrawText(buffer, WINDOW_WIDTH / 2.0f - text_width / 2, 450, font_size,
+           RAYWHITE);
+}
+
+void drawWonScreen() {
+  char buffer[1000];
+  snprintf(buffer, sizeof(buffer), "WON");
+  int font_size = 64;
+  int text_width = MeasureText(buffer, font_size);
+  DrawText(buffer, WINDOW_WIDTH / 2.0f - text_width / 2, 200, font_size,
+           RAYWHITE);
+
+  snprintf(buffer, sizeof(buffer), "PRESS ENTER TO RESTART");
+  font_size = 24;
+  text_width = MeasureText(buffer, font_size);
+  DrawText(buffer, WINDOW_WIDTH / 2.0f - text_width / 2, 400, font_size,
+           RAYWHITE);
+
+  snprintf(buffer, sizeof(buffer), "PRESS ESC TO QUIT");
+  font_size = 24;
+  text_width = MeasureText(buffer, font_size);
+  DrawText(buffer, WINDOW_WIDTH / 2.0f - text_width / 2, 450, font_size,
+           RAYWHITE);
+}
+
 int main(void) {
   SetConfigFlags(FLAG_MSAA_4X_HINT);
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "SPACE INVADERS");
@@ -251,14 +363,28 @@ int main(void) {
   Entity entities[MAX_ENTITIES] = {0};
   spawnPlayer(entities);
   spawnEnemies(entities);
+  GameState game_state = MENU;
   float dt = 0.0f;
   while (!WindowShouldClose()) {
     dt = GetFrameTime();
-    input(entities);
-    physics(dt, entities);
+    input(&game_state, entities);
+    physics(&game_state, dt, entities);
     BeginDrawing();
     ClearBackground(BLACK);
-    drawEntities(entities);
+    switch (game_state) {
+    case MENU: {
+      drawMenu();
+    } break;
+    case ON: {
+      drawEntities(entities);
+    } break;
+    case WON: {
+      drawWonScreen();
+    } break;
+    case LOST: {
+      drawLostScreen();
+    } break;
+    }
     EndDrawing();
   }
   CloseWindow();
